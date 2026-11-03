@@ -1,0 +1,18 @@
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+# This is an engineering-only run: 25 source frames produce exactly 20
+# six-frame samples at interval 1. It must never be reported as an accuracy run.
+SAMPLE_STEPS: [0, ]
+SAMPLE_LENGTHS: [6, ]
+SAMPLE_INTERVALS: [1, ]
+NUM_WORKERS: 2
+PREFETCH_FACTOR: 2
+
+BATCH_SIZE: 1
+EPOCHS: 1
+LR_WARMUP_EPOCHS: 0
+SCHEDULER_MILESTONES: []
+DETR_NUM_TRAIN_FRAMES: 2
+DETR_NUM_CHECKPOINT_FRAMES: 2
+SAVE_CHECKPOINT_PER_EPOCH: 1
+USE_WANDB: False

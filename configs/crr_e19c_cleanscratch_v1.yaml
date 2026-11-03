@@ -1,0 +1,113 @@
+# E19c Clean Scratch -- E19b recipe + the three accumulated fixes from the
+# three-round peer analysis (round-3 verdict, 2026-10-19).  Run name:
+# crr_e19c_cleanscratch_fixpkg_seed42_v1.
+#
+# Chain: this config -> r50_deformable_detr_motip_dancetrack.yaml (official base).
+# Everything the official base sets (EPOCHS 10, milestones [6, 9], gamma 0.1,
+# LR 1e-4 with 1 warmup epoch, WEIGHT_DECAY 5e-4, MAX_CLIP_NORM 0.1,
+# BATCH_SIZE 1, seed 42) is inherited UNCHANGED from E19b.
+#
+# Deltas vs crr_e19b_cleanscratch_v1 (exactly three, one per peer-round fix):
+#   1. AUG_TRAJECTORY_SWITCH_PROB 0.5 -> 0.0  (round-3 first poison).
+#      The official switch augmentation is a PER-FRAME, per-slot bernoulli(0.5)
+#      reshuffle of trajectory id-labels (data/transforms.py:543-559).  The
+#      official id_decoder (6-layer soft cross-attention + rel-pos time
+#      encoding) averages polluted frames away; the CRR pointer's base_max
+#      (amax) is a single-point extremum, so ONE switched frame puts the
+#      query's own self-similarity into a WRONG entity column (margin ~ 0).
+#      E4 already proved label-level 0.5 corruption toxic for a purely
+#      appearance pointer (IDSW 25x); every frozen-era run trains switch 0.0;
+#      the e2e-era restoration to 0.5 was never validated for the amax
+#      pointer.  Occlusion 0.5 STAYS (continuous-segment masking is harmless
+#      to amax).
+#   2. models/motip/entity_pointer.py: reliability / residual / id_gate last
+#      layers keep their DEFAULT init instead of zeros (round-2 cold-start
+#      wake-up fix).  Zero-init was a warm-start bootstrap constraint
+#      (step-0 == P0); from scratch it only puts the E1 state machine and
+#      the E5 id-memory channel to sleep behind zero gates.
+#   3. models/motip/entity_pointer.py: learnable logit scale s --
+#      mention_scores = (cos * sqrt(d)) * s, nn.Parameter init 1.0
+#      (architecture-audit ladder step 1).  Step-0 geometry is identical to
+#      E19b; s restores the one-dimensional logit scale freedom that the
+#      official unbounded linear head gets for free and that cos*sqrt(d)
+#      locks into the +-16 band.
+#
+# NOT changed on purpose (recorded verdicts): LR 1e-4 / warmup 1 / clip 0.1
+# (official values -- the official author reaches 64.099 from scratch with
+# the same optimizer; step-size compression is an amplifier, not a root
+# cause), the three E5-only mechanisms stay OFF (E18 verdict), official
+# unbounded NEW head (E19b), POINTER_NEW_CLASS_WEIGHT 1.0, eval protocol
+# object-max + ID_THRESH 0.2 (official).
+#
+# Pre-registered three-level verdict (chosen at the PEAK epoch, never the tail):
+#   HOTA >= 63.5 and IDs <= 2500  -> CRR paradigm independently converges
+#   62.5 <= HOTA < 63.5           -> partial success, recipe gap remains
+#   HOTA <= E5 family curve       -> deeper defect beyond the fix package
+# Pre-registered cold-start read-out (ep1-2; the three fixes are confounded
+# by design -- repair prioritised over isolation per user decision):
+#   ep1-2 IDs drop to the ~1e4 band (E5-orig ep1: 28217 -> 9715)
+#     -> the fix package unblocks the cold start (switch poison and/or
+#        zero-init dormancy and/or bounded-scale lock were load-bearing)
+#   ep1-2 IDs stay in the 3-5e4 band with no phase transition
+#     -> deeper defect remains (discriminative-burden transfer, short-history
+#        fragility); next ladder: logsumexp(tau) aggregation, equivariant
+#        refinement cross-attn, two-stage curriculum (E19d candidates)
+
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+# Data: official 40-sequence train split (identical to E5/ABL runs).
+DATASET_SPLITS: [motip_official_train40_v1]
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.0
+
+# CRR architecture (E5-family identical).
+USE_CAUSAL_ENTITY_POINTER: true
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+
+# Official end-to-end regime (4 gradient frames + 26 no-grad frames).
+DETR_NUM_TRAIN_FRAMES: 4
+DETR_NUM_CHECKPOINT_FRAMES: 1
+
+# The three E5-only mechanisms: OFF (E18 ablation verdict).
+POINTER_HISTORY_BLACKOUT_PROB: 0.0
+POINTER_HISTORY_PREFIX_PROB: 0.0
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+POINTER_NEW_CLASS_WEIGHT: 1.0
+
+# From-scratch: no RESUME_MODEL.  The official pretrained detector is passed
+# via --detr-pretrain on the command line (r50_deformable_detr_coco_dancetrack.pth).
+RESUME_MODEL:
+RESUME_STRICT: true
+RESUME_OPTIMIZER: false
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+# Official schedule inherited from the base (EPOCHS 10, milestones [6, 9],
+# gamma 0.1, LR 1e-4, warmup 1) -- restated here for frozen-config readability.
+EPOCHS: 10
+LR: 0.0001
+LR_WARMUP_EPOCHS: 1
+SCHEDULER_MILESTONES: [6, 9]
+SCHEDULER_GAMMA: 0.1
+
+# Runtime (matching ABL-proven resource settings).
+NUM_WORKERS: 4
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Per-epoch official val evaluation.
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+SAVE_CHECKPOINT_PER_EPOCH: 1

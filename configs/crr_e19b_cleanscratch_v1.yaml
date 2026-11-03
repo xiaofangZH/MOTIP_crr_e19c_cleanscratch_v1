@@ -1,0 +1,95 @@
+# E19b Clean Scratch -- CRR paradigm trained from scratch on the official
+# recipe, OFFICIAL (unbounded linear) NEW head.
+#
+# Chain: this config -> r50_deformable_detr_motip_dancetrack.yaml (official base).
+# Everything the official base sets (EPOCHS 10, milestones [6, 9], gamma 0.1,
+# LR 1e-4 with 1 warmup epoch, WEIGHT_DECAY 5e-4, MAX_CLIP_NORM 0.1,
+# occlusion 0.5 / switch 0.5, BATCH_SIZE 1, seed 42) is inherited UNCHANGED.
+#
+# Deltas vs the official base (each is deliberate):
+#   1. CRR architecture: causal entity pointer in equivariant_memory mode
+#      replaces the official id-decoder softmax head (this is the paradigm
+#      under test -- the paper's contribution).
+#   2. The three E5-only training mechanisms are OFF (E18 verdict: harmful,
+#      they inflate NEW supervision 8.28x):
+#        POINTER_HISTORY_BLACKOUT_PROB 0.6 -> 0.0
+#        POINTER_HISTORY_PREFIX_PROB   0.25 -> 0.0
+#        POINTER_HISTORY_CORRUPTION_SCHEDULE [0.15..0.05] -> all 0.0
+#        POINTER_NEW_CLASS_WEIGHT       1.5 -> 1.0 (official default)
+#   3. NEW head: OFFICIAL unbounded linear logit (E18 source tree, ZERO code
+#      changes vs E18).  The E19 geometric fix (cosine*sqrt(d) bounded NEW
+#      prototype) was ROLLED BACK: E19 stalled in cold start (ep0-3 IDs
+#      30298/43552/33466/43890, association phase transition absent while
+#      E5-orig completed it at full LR ep2 with IDs 7626; verdict: bounded
+#      NEW head self-locking loop -- under-association -> NEW verdicts ->
+#      address-pool explosion -> softmax dilution -> correct address below
+#      ID_THRESH 0.2 -> more NEW).  E19b isolates the fix as the cause by
+#      reverting it under an otherwise identical recipe.
+#   4. DETR_NUM_CHECKPOINT_FRAMES 1 (official: 5) -- 24 GB RTX 4090 OOM guard,
+#      identical to every E5-family run.
+#   5. Per-epoch official DanceTrack val evaluation under the official
+#      protocol (object-max, DET 0.3 / NEWBORN 0.6 / ID 0.2 / MISS 30).
+#
+# Pre-registered three-level verdict (chosen at the PEAK epoch, never the tail):
+#   HOTA >= 63.5 and IDs <= 2500  -> CRR paradigm independently converges
+#   62.5 <= HOTA < 63.5           -> partial success, recipe gap remains
+#   HOTA <= E5 family curve       -> deeper defect beyond the NEW-head geometry
+
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+# Data: official 40-sequence train split (identical to E5/ABL runs).
+DATASET_SPLITS: [motip_official_train40_v1]
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.5
+
+# CRR architecture (E5-family identical).
+USE_CAUSAL_ENTITY_POINTER: true
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+
+# Official end-to-end regime (4 gradient frames + 26 no-grad frames).
+DETR_NUM_TRAIN_FRAMES: 4
+DETR_NUM_CHECKPOINT_FRAMES: 1
+
+# The three E5-only mechanisms: OFF (E18 ablation verdict).
+POINTER_HISTORY_BLACKOUT_PROB: 0.0
+POINTER_HISTORY_PREFIX_PROB: 0.0
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+POINTER_NEW_CLASS_WEIGHT: 1.0
+
+# From-scratch: no RESUME_MODEL.  The official pretrained detector is passed
+# via --detr-pretrain on the command line (r50_deformable_detr_coco_dancetrack.pth).
+RESUME_MODEL:
+RESUME_STRICT: true
+RESUME_OPTIMIZER: false
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+# Official schedule inherited from the base (EPOCHS 10, milestones [6, 9],
+# gamma 0.1, LR 1e-4, warmup 1) -- restated here for frozen-config readability.
+EPOCHS: 10
+LR: 0.0001
+LR_WARMUP_EPOCHS: 1
+SCHEDULER_MILESTONES: [6, 9]
+SCHEDULER_GAMMA: 0.1
+
+# Runtime (matching ABL-proven resource settings).
+NUM_WORKERS: 4
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Per-epoch official val evaluation.
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+SAVE_CHECKPOINT_PER_EPOCH: 1

@@ -1,0 +1,14 @@
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+USE_CAUSAL_HISTORY_PROTOTYPE: false
+USE_CAUSAL_ENTITY_POINTER: true
+USE_H2_INACTIVE_MEMORY: false
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+# Dynamic pointer addresses compete directly with the explicit NEW class.
+# No fixed absolute probability threshold is applied after the argmax.
+ID_THRESH: 0.0
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+USE_WANDB: false

@@ -1,0 +1,89 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+# ---------------------------------------------------------------------------
+# E5-E2E: end-to-end joint training (paper main-table run, max-performance
+# regime).  Replaces the frozen-detector E5-final run by user decision.
+#
+# What changed vs E5-final (frozen):
+#   - TRAIN_ENTITY_POINTER_ONLY: false      -> whole model trainable
+#   - DETR_NUM_TRAIN_FRAMES: 4              -> official MOTIP e2e regime:
+#     per 30-frame sample, 4 random frames backprop through the detector,
+#     the other 26 run under no_grad (matches r50_deformable_detr_motip_
+#     dancetrack.yaml exactly).
+#   - LR: 1e-4 (official e2e LR; backbone 0.1x, linear-proj 0.05x come from
+#     the official super config) with 1-epoch warmup, replacing the 1e-3
+#     pointer-only LR.
+#
+# What is kept from the validated E5 recipe:
+#   - E5 architecture: equivariant_memory pointer (entity-state appearance
+#     channel + GRU identity memory behind a zero-init gate).
+#   - Bootstrap: P0 ckpt9 -- identical init lineage to E1/E4/E5 (its DETR
+#     weights equal the coco_dancetrack detector pretrain, so the DETR e2e
+#     starts exactly where MOTIP's does; the pointer head gets a warm start).
+#   - 12-epoch ramp-plateau-anneal corruption curriculum.
+#   - Full official training data (motip_official_train40_v1, all 40 seqs).
+#   - Per-epoch model selection on official val under the official MOTIP
+#     protocol (object-max + ID 0.2) -- selection metric == reported metric.
+#
+# Motivation: protocol-matched val eval showed the frozen-detector ceiling
+# (E5 59.16 / E1 57.29 vs MOTIP 72.0) with the gap ~100% in AssA.  MOTIP's
+# 72.0 is trained end-to-end; joint training lets detection features become
+# identity-discriminative, which is the missing capacity for DanceTrack.
+# ---------------------------------------------------------------------------
+
+DATASET_SPLITS: [motip_official_train40_v1]
+
+# Official MOTIP association robustness augmentations (restored from
+# r50_deformable_detr_motip_dancetrack.yaml; the crr_pointer super config
+# had reduced them to 0.15/0.0 for the frozen controlled experiments, which
+# was a recipe mismatch for the max-performance e2e run):
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.5
+
+# E5 architecture (identical to E5-final / anneal runs):
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+
+# END-TO-END regime (the whole point of this run):
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+DETR_NUM_TRAIN_FRAMES: 4
+# 1 < 4 grad frames -> each grad frame is forwarded through the DETR with
+# torch gradient checkpointing (train.py use_checkpoint=True path), which
+# trades ~10-15% step time for the activation memory that OOMed at value 5.
+DETR_NUM_CHECKPOINT_FRAMES: 1
+
+RESUME_MODEL: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_pointer_train32_epoch10_v3/checkpoint_9.pth
+RESUME_STRICT: false
+RESUME_OPTIMIZER: false
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+EPOCHS: 12
+LR: 0.0001
+LR_WARMUP_EPOCHS: 1
+SCHEDULER_MILESTONES: [8, 11]
+SCHEDULER_GAMMA: 0.2
+
+# Validated ramp-plateau-anneal corruption curriculum over a fresh 12-epoch run:
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.05, 0.10, 0.15, 0.15, 0.15, 0.12, 0.10, 0.08, 0.06, 0.05, 0.05]
+
+# Avoid the long-run DataLoader shared-memory failure seen in the official run.
+NUM_WORKERS: 4
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Per-epoch closed-loop evaluation on the OFFICIAL val split with the
+# OFFICIAL MOTIP protocol so epoch selection matches the reported metric.
+# Sinkhorn arbitration stays off here (inference-side only).
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440

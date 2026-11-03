@@ -1,0 +1,2 @@
+Module A v2: P0 max + bounded zero-init top-k causal consensus residual.
+Only consensus_mlp is trainable in the controlled experiment.

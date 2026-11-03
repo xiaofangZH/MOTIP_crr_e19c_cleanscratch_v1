@@ -1,0 +1,30 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+# ---------------------------------------------------------------------------
+# CONTROL run: E1 baseline (faithful MOTIP reproduction, dev8 76.384) on the
+# OFFICIAL DanceTrack val split with the OFFICIAL MOTIP inference protocol
+# (object-max + ID_THRESH 0.2), bit-identical protocol to the E5
+# officialproto run.  Purpose: under the MOTIP official protocol, separate
+#   H1 (pipeline-level): both E5 and E1 land below MOTIP val 72.0 --
+#       controlled E5-vs-E1 comparison remains the paper claim;
+#   H2 (E5-specific): E1 lands near 70+ while E5 does not.
+# Hungarian-protocol results for reference: E5 59.61 / E1 57.48.
+# ---------------------------------------------------------------------------
+
+# E1 model structure:
+POINTER_AGGREGATION_MODE: entity_state
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+
+# OFFICIAL MOTIP protocol (from r50_deformable_detr_motip_dancetrack.yaml):
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+INFERENCE_MODE: evaluate

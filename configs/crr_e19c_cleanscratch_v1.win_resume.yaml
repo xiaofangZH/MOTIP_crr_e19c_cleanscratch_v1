@@ -1,0 +1,130 @@
+# E19c Clean Scratch -- WINDOWS CONTINUATION (resume from checkpoint_0.pth).
+#
+# Provenance: ep0 of run crr_e19c_cleanscratch_fixpkg_seed42_v1 was trained on
+# the Linux box (WSL) with configs/crr_e19c_cleanscratch_v1.yaml, frozen in
+# <output>/frozen_config.yaml.  The experiment then moved to native Windows
+# (G:\mot_win, conda env "dl": python 3.11 / torch 2.6.0+cu124 / RTX A6000,
+# MultiScaleDeformableAttention rebuilt with MSVC 14.24 + CUDA 12.2).
+#
+# This file is a verbatim copy of configs/crr_e19c_cleanscratch_v1.yaml with
+# EXACTLY ONE semantic change -- the resume block (marked [WIN-DELTA]).
+# Every science-relevant hyperparameter is inherited unchanged, so ep1..ep9 are
+# a continuation of the same pre-registered run, not a new experiment.
+#
+# [WIN-DELTA] resume block:
+#   RESUME_MODEL     : (empty) -> <output>/checkpoint_0.pth
+#   RESUME_OPTIMIZER : false   -> true   (AdamW moments + 4 param-group LRs
+#                                         [1e-5, 5e-6, 1e-4, 1e-4] are in the ckpt)
+#   RESUME_SCHEDULER : false   -> true   (ckpt MultiStepLR last_epoch=0;
+#                                         train.py steps it once -> last_epoch=1,
+#                                         milestones [6, 9] untouched)
+#   RESUME_STATES    : false   -> true   (ckpt states = start_epoch 1,
+#                                         global_step 40636 -> loop range(1, 10))
+#   RESUME_STRICT    : true    -> true   (unchanged; ckpt has 749 keys under
+#                                         prefixes detr / entity_pointer /
+#                                         id_decoder / trajectory_modeling)
+#
+# Verified against the checkpoint before writing this file:
+#   no bare "bbox_embed.0.layers.0.weight" key -> load_checkpoint() takes the
+#   model.load_state_dict path, NOT the silent detr-pretrain early-return.
+#
+# Pre-registered three-level verdict (unchanged, chosen at the PEAK epoch):
+#   HOTA >= 63.5 and IDs <= 2500  -> CRR paradigm independently converges
+#   62.5 <= HOTA < 63.5           -> partial success, recipe gap remains
+#   HOTA <= E5 family curve       -> deeper defect beyond the fix package
+#
+# Pre-registered cold-start read-out: ALREADY SATISFIED AT ep0.
+#   E19c ep0 = HOTA 52.469 / IDs 1246, vs E5-orig ep0 IDs 28217 and
+#   E19 ep0 IDs 30298.  The fix package unblocked the cold start one epoch
+#   earlier and ~23x lower than the "ep1-2 IDs drop to the ~1e4 band" bar.
+#   Remaining question for ep1..ep9: does it keep descending toward the official
+#   64.099 / 1713 neighbourhood, or stall like E19 did at ep2?
+
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+# Data: official 40-sequence train split (identical to E5/ABL runs).
+# On Windows DATASET_SPLITS resolves through NTFS junctions in
+# G:\mot_win\New_MOT_v2\datasets\DanceTrack\motip_official_train40_v1
+# (40 junctions, each -> ..\train\dancetrackXXXX).  --data-root is passed on
+# the command line, so no absolute path is needed here.
+DATASET_SPLITS: [motip_official_train40_v1]
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.0
+
+# CRR architecture (E5-family identical).
+USE_CAUSAL_ENTITY_POINTER: true
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+
+# Official end-to-end regime (4 gradient frames + 26 no-grad frames).
+DETR_NUM_TRAIN_FRAMES: 4
+DETR_NUM_CHECKPOINT_FRAMES: 1
+
+# The three E5-only mechanisms: OFF (E18 ablation verdict).
+POINTER_HISTORY_BLACKOUT_PROB: 0.0
+POINTER_HISTORY_PREFIX_PROB: 0.0
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+POINTER_NEW_CLASS_WEIGHT: 1.0
+
+# [WIN-DELTA] resume from the Linux-trained ep0 checkpoint.  Forward slashes are
+# deliberate: YAML plain scalars do not process backslash escapes, and
+# os.path / open accept them on Windows.
+RESUME_MODEL: G:/mot_win/New_MOT_v2/motip_paradigm_reset/crr_e19c_cleanscratch_fixpkg_seed42_v1/checkpoint_0.pth
+RESUME_STRICT: true
+RESUME_OPTIMIZER: true
+RESUME_SCHEDULER: true
+RESUME_STATES: true
+
+# Official schedule inherited from the base (EPOCHS 10, milestones [6, 9],
+# gamma 0.1, LR 1e-4, warmup 1) -- restated here for frozen-config readability.
+EPOCHS: 10
+LR: 0.0001
+LR_WARMUP_EPOCHS: 1
+SCHEDULER_MILESTONES: [6, 9]
+SCHEDULER_GAMMA: 0.1
+
+# Runtime.  [WIN-DELTA] The Linux baseline used NUM_WORKERS 4; this Windows run
+# uses 12 (i9-10980XE, 18 physical / 36 logical cores, 256 GB RAM).
+#
+# Windows DataLoader workers use spawn, not fork, so every worker pays a torch
+# import PLUS an unpickle of the 66.8 MB JointDataset (the sampler holds
+# data_source, so the dataset is serialised twice per child).  Measured with
+# scripts/probe_pickle_dataset.py against the real resume config:
+#     PICKLE_OK   ds (JointDataset)     66.8 MB    12.8 s
+#     PREPARE_FOR_EPOCH_SEC 1.4  SAMPLE_INFOS=40636
+#     ITER_CREATED_SEC 1091.5  num_workers=12      <- ~91 s per worker, serial
+#     FIRST_BATCH_SEC 5.0
+#     SECOND_BATCH_SEC 0.0
+#     N_PYTHON=12  TOTAL_WS_GB=16.8                <- 16.8 GB of 256 GB
+# So 12 workers cost ~18 min of one-off startup at the top of each epoch.  An
+# epoch is 40636 steps; the Linux baseline measured "[Finish epoch: 0]
+# [Time: 18:45:39]" (steady-state tps avg 1.662 s, n=2017), so the spawn
+# overhead is ~1.6% of an epoch, and memory is a non-issue.
+# SECOND_BATCH_SEC 0.0 means loading is already fully hidden behind the GPU, so
+# the extra workers buy prefetch headroom rather than speed -- acceptable.
+# torch.multiprocessing.set_sharing_strategy('file_system') at train.py:44 is
+# already the Windows default (torch/multiprocessing/__init__.py:52-54), so it
+# is a safe no-op here.  The smoke config uses NUM_WORKERS 0.
+NUM_WORKERS: 12
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Per-epoch official val evaluation.  submit_and_evaluate.py:350 shells out to
+# ["python", "TrackEval/scripts/run_mot_challenge.py"] with a RELATIVE script
+# path, so the launcher MUST cd into the repo AND put the env's python.exe on
+# PATH.  GT_FOLDER = <data-root>\DanceTrack\val (25 real dirs, not junctions);
+# SEQMAP_FILE = <data-root>\DanceTrack\val_seqmap.txt.
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+SAVE_CHECKPOINT_PER_EPOCH: 1

@@ -1,0 +1,73 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+# ---------------------------------------------------------------------------
+# E18 ABLATION of E5's cont7 recipe.
+#
+# Identical to crr_e5_e2e_train40_cont7_seed42_v1.yaml EXCEPT that the three
+# training mechanisms MOTIP does not have are switched OFF:
+#
+#   (1) POINTER_HISTORY_BLACKOUT_PROB      0.6  -> 0.0
+#       (data/transforms.py history blackout; 25% of them are prefix masks)
+#   (2) POINTER_HISTORY_CORRUPTION_SCHEDULE [0.15..0.05] -> all 0.0
+#       (train.py apply_structured_pointer_history_corruption, the state swap)
+#   (3) POINTER_NEW_CLASS_WEIGHT           1.5  -> 1.0   (official default)
+#
+# Everything else is byte-identical: same tree, same resume checkpoint
+# (epoch12/checkpoint_4), same 7-epoch re-indexed curriculum, same LR/milestones,
+# same official association augmentations (occlusion/switch 0.5), same per-epoch
+# official-val eval under the official protocol.
+#
+# PRE-REGISTERED TARGET (E18-trig established the baseline on E5 cont7 ckpt5):
+#   C2 (existing_below_id_threshold) : 3060 rows  ->  expect towards ~100
+#   total ids                        : 5060       ->  expect towards ~1713
+#   the same two numbers on official : 99 rows / 1713 ids
+# A drop of C2 is the whole point; if C2 stays ~3000 the three knobs are
+# exonerated and the defect is elsewhere in the e2e training itself.
+# ---------------------------------------------------------------------------
+
+DATASET_SPLITS: [motip_official_train40_v1]
+
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.5
+
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+DETR_NUM_TRAIN_FRAMES: 4
+DETR_NUM_CHECKPOINT_FRAMES: 1
+
+# ---- the ablation: three non-official mechanisms OFF ----
+POINTER_HISTORY_BLACKOUT_PROB: 0.0
+POINTER_HISTORY_PREFIX_PROB: 0.0
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+POINTER_NEW_CLASS_WEIGHT: 1.0
+
+RESUME_MODEL: /root/work/local_data/New_MOT_v2/motip_paradigm_reset/crr_e5_e2e_train40_epoch12_seed42_v1/checkpoint_4.pth
+RESUME_STRICT: false
+RESUME_OPTIMIZER: true
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+EPOCHS: 7
+LR: 0.0001
+LR_WARMUP_EPOCHS: 0
+SCHEDULER_MILESTONES: [3, 6]
+SCHEDULER_GAMMA: 0.2
+
+NUM_WORKERS: 4
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440

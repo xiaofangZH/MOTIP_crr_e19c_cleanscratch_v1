@@ -1,0 +1,31 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+POINTER_AGGREGATION_MODE: entity_state
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: true
+
+RESUME_MODEL: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_pointer_train32_epoch10_v3/checkpoint_9.pth
+RESUME_STRICT: false
+RESUME_OPTIMIZER: false
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+EPOCHS: 3
+LR: 0.001
+LR_WARMUP_EPOCHS: 0
+SCHEDULER_MILESTONES: [2]
+SCHEDULER_GAMMA: 0.2
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.05, 0.10]
+
+# Avoid the long-run DataLoader shared-memory failure seen in the official run.
+NUM_WORKERS: 4
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Training-only experiment. Closed-loop evaluation is launched explicitly on a
+# training-side development split after checkpoint audit; never inherit dev8.
+INFERENCE_DATASET: null
+INFERENCE_SPLIT: null

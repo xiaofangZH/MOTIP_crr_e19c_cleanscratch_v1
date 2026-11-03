@@ -1,0 +1,64 @@
+# E19c WINDOWS SMOKE TEST -- NOT A SCIENCE RUN.  Throws away its output dir.
+#
+# Purpose: prove the whole Windows path end-to-end on a handful of steps before
+# committing GPU-days -- config chain merge, strict resume of checkpoint_0.pth
+# (749 keys), MSDA .pyd forward/backward inside the real model, spawn-based
+# DataLoader, checkpoint save, and the TrackEval subprocess scoring val.
+#
+# Identical to crr_e19c_cleanscratch_v1.win_resume.yaml except:
+#   NUM_WORKERS         4 -> 0    (kill spawn cost; single-process data path)
+#   PREFETCH_FACTOR     2 -> 2    (train.py passes None when NUM_WORKERS == 0)
+#   MAX_STEPS_PER_EPOCH (absent) -> 2
+#   EPOCHS             10 -> 2    (start_epoch 1 -> only epoch 1 runs)
+#   INFERENCE_SPLIT   val -> val  (kept: the eval path is what we are testing)
+# Run it with --outputs-dir pointing at a scratch dir, never the real output.
+
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+DATASET_SPLITS: [motip_official_train40_v1]
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.0
+
+USE_CAUSAL_ENTITY_POINTER: true
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+
+DETR_NUM_TRAIN_FRAMES: 4
+DETR_NUM_CHECKPOINT_FRAMES: 1
+
+POINTER_HISTORY_BLACKOUT_PROB: 0.0
+POINTER_HISTORY_PREFIX_PROB: 0.0
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+POINTER_NEW_CLASS_WEIGHT: 1.0
+
+RESUME_MODEL: G:/mot_win/New_MOT_v2/motip_paradigm_reset/crr_e19c_cleanscratch_fixpkg_seed42_v1/checkpoint_0.pth
+RESUME_STRICT: true
+RESUME_OPTIMIZER: true
+RESUME_SCHEDULER: true
+RESUME_STATES: true
+
+EPOCHS: 2
+MAX_STEPS_PER_EPOCH: 2
+LR: 0.0001
+LR_WARMUP_EPOCHS: 1
+SCHEDULER_MILESTONES: [6, 9]
+SCHEDULER_GAMMA: 0.1
+
+NUM_WORKERS: 0
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+SAVE_CHECKPOINT_PER_EPOCH: 1

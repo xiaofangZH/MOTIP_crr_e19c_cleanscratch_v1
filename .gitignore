@@ -1,0 +1,17 @@
+# Root gitignore file
+
+# PyCharm
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Datasets, weights and run outputs are not tracked
+*.pth
+*.pt
+*.ckpt
+*.mp4
+outputs/
+log/*.log

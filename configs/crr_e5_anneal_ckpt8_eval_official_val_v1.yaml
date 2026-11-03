@@ -1,0 +1,31 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+# ---------------------------------------------------------------------------
+# CRR-E5 final evaluation on the OFFICIAL DanceTrack val split (25 seqs).
+# Model: anneal branch checkpoint_8 (epoch 8, corruption 0.08, the global
+# optimum selected on dev8: HOTA 83.234 / AssA 76.948 / IDF1 88.470).
+# This is the ONLY contact with the official val split in the whole CRR
+# program -- every model-selection decision so far was made on dev8 only.
+# Runtime protocol is bit-identical to all dev8 evaluations (hungarian,
+# DET 0.3 / NEWBORN 0.6 / ID 0.0, Sinkhorn off), so dev8<->val numbers are
+# directly comparable and the locked-validation discipline stays intact.
+# ---------------------------------------------------------------------------
+
+# E5 model structure (must match anneal checkpoint_8):
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+
+# Runtime protocol (identical to dev8 evals):
+ASSIGNMENT_PROTOCOL: hungarian
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.0
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+INFERENCE_MODE: evaluate

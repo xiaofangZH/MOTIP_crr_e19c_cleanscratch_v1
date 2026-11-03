@@ -1,0 +1,16 @@
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+# H2 is inference-only in this first causal gate. The detector and official
+# MOTIP ID decoder remain bit-for-bit frozen.
+USE_CAUSAL_HISTORY_PROTOTYPE: false
+USE_H2_INACTIVE_MEMORY: true
+H2_MAX_INACTIVE_AGE: 60
+H2_RECOVERY_THRESH: 0.2
+
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+USE_WANDB: false

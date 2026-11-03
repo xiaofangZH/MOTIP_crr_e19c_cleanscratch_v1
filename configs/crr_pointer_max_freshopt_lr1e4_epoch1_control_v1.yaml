@@ -1,0 +1,14 @@
+# Matched optimizer-schedule control for failed Module A v1.
+# Only scientific difference from Module A v1 is aggregation_mode=max.
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+POINTER_AGGREGATION_MODE: max
+RESUME_STRICT: true
+RESUME_OPTIMIZER: False
+RESUME_SCHEDULER: False
+RESUME_STATES: False
+
+LR: 0.0001
+SCHEDULER_MILESTONES: [5, 8]
+SCHEDULER_GAMMA: 0.2
+EPOCHS: 1

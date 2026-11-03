@@ -1,0 +1,34 @@
+# E19c offline three-arm evaluation -- ARM B (hungarian).
+#
+# Single-variable isolation against the per-epoch val eval that produced
+# train/eval_during_train/epoch_1 (arm A, object-max, SINKHORN_ITERS 0):
+#   arm A: ASSIGNMENT_PROTOCOL object-max, SINKHORN_ITERS 0, ID_THRESH 0.2
+#   arm B: ASSIGNMENT_PROTOCOL hungarian, SINKHORN_ITERS 0, ID_THRESH 0.2  <- this
+#   arm C: ASSIGNMENT_PROTOCOL object-max, SINKHORN_ITERS 3, ID_THRESH 0.2
+# Everything else (checkpoint_1.pth, DET 0.3 / NEWBORN 0.6 / ID 0.2,
+# MISS_TOLERANCE 30, INFERENCE_MAX_LONGER 1440, POINTER_* architecture) is
+# frozen.  NOTE: historical hungarian evals used ID_THRESH 0.0; 0.2 is kept
+# here on purpose so the protocol is the only difference.
+#
+# ID_THRESH stays 0.2: _hungarian_assignment keeps the same
+# id_scores < id_thresh rejection rule as object-max, so 0.2 is comparable.
+
+SUPER_CONFIG_PATH: ./configs/crr_e19c_cleanscratch_v1.yaml
+
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+
+ASSIGNMENT_PROTOCOL: hungarian
+SINKHORN_ITERS: 0
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+INFERENCE_MODE: evaluate

@@ -1,0 +1,15 @@
+SUPER_CONFIG_PATH: ./configs/crr_e5_e2e_train40_long30_seed42_v1.yaml
+
+# Clip-norm alignment A/B on the FULL official DanceTrack train split
+# (2026-09-20) -- ARM A (CONTROL).
+# MAX_CLIP_NORM was raised from the official 0.1 to 1.0 in the pointer-curriculum
+# era (crr_pointer_train32_epoch10_v1.yaml) and inherited by every E5 run since.
+# Observed detr grad norms are 37-103, so at 1.0 the clip effectively never binds;
+# the official recipe clips every step to 0.1 (i.e. far smaller effective steps).
+# ARM A keeps 1.0 as the matched control for ARM B (0.1).
+# Everything else identical to long30, including DATASET_SPLITS
+# (motip_official_train40_v1 = all 40 official DanceTrack train sequences).
+# Horizon 10 epochs to match the official training budget; because per-epoch
+# validation is recorded, both arms can be truncated at a matched epoch once
+# the trend is decisive.
+EPOCHS: 10

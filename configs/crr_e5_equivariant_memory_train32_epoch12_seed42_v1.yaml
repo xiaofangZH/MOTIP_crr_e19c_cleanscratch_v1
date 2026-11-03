@@ -1,0 +1,48 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+TRAIN_ENTITY_POINTER_ONLY: true
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+
+RESUME_MODEL: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_pointer_train32_epoch10_v3/checkpoint_9.pth
+RESUME_STRICT: false
+RESUME_OPTIMIZER: false
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+# CRR-E5: equivariant identity memory (paper key path).
+# Structure = E1 entity_state (appearance channel P_ptr) + generative ID
+# embedding (shared GRUCell over each entity's own mention history, P_id)
+# behind a zero-initialised gate, jointly trained as the whole pointer head
+# from the P0 ckpt9 bootstrap (frozen-base stacking is locked out by 15.2).
+# Regime follows the 15.6 correction: E4 proved corruption 0.5 is toxic for a
+# purely appearance pointer (IDSW 25x); the hypothesis for E5 is that with a
+# fallback identity state h_e, corruption up to 0.15 becomes a learnable
+# robustness source instead of poison.  Curriculum capped at 0.15.
+# Sinkhorn arbitration stays inference-side only (SINKHORN_ITERS in the eval
+# config); training never sees it.
+EPOCHS: 12
+LR: 0.001
+LR_WARMUP_EPOCHS: 0
+SCHEDULER_MILESTONES: [8, 11]
+SCHEDULER_GAMMA: 0.2
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.05, 0.10, 0.15, 0.15, 0.15, 0.15, 0.15, 0.15, 0.15, 0.15, 0.15]
+
+# Avoid the long-run DataLoader shared-memory failure seen in the official run.
+NUM_WORKERS: 4
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Per-epoch closed-loop evaluation on the training-side development split
+# motip_reset_dev8_v1 (same runtime protocol as the P0/E1 dev8 evals:
+# hungarian, DET 0.3 / NEWBORN 0.6 / ID 0.0 / miss 30, inherited from the
+# super config).  Results are printed into the training log as
+# "[Eval epoch: N]" after each checkpoint save, so training curves and
+# closed-loop dev metrics are visible in one place.  Sinkhorn arbitration
+# stays off here (inference-side only, enabled in the standalone eval config).
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: motip_reset_dev8_v1

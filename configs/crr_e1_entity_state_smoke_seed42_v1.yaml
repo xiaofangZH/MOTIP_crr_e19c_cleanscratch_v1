@@ -1,0 +1,13 @@
+SUPER_CONFIG_PATH: ./configs/crr_e1_entity_state_train32_epoch3_seed42_v1.yaml
+
+DATASET_SPLITS: [crr_pointer_train8_v1]
+EPOCHS: 1
+MAX_STEPS_PER_EPOCH: 40
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0]
+NUM_WORKERS: 2
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Smoke is training-only; do not inherit automatic dev8 submission.
+INFERENCE_DATASET: null
+INFERENCE_SPLIT: null

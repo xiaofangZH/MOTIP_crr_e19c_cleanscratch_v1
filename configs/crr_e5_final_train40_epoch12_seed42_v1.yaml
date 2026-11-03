@@ -1,0 +1,62 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+# ---------------------------------------------------------------------------
+# E5-FINAL: paper main-table run.  Full official training data (all 40
+# DanceTrack train sequences via the motip_official_train40_v1 split dir),
+# fresh 12-epoch joint training from the P0 ckpt9 bootstrap with the
+# validated ramp-plateau-anneal corruption curriculum (the regime that
+# produced the dev8 optimum ep8 in the anneal branch).
+#
+# Motivation: dev8 (8 held-out TRAIN sequences seen by the DETR pretrain)
+# inflated absolute closed-loop numbers (83.23 dev8 -> 59.61 val).  With
+# all 40 train sequences in training there is no train-side dev split left;
+# model selection moves to the official val split (25 sequences), evaluated
+# per epoch under the OFFICIAL MOTIP protocol (object-max + ID 0.2) so the
+# selection metric matches the reported main-table metric.
+# ---------------------------------------------------------------------------
+
+# Full official training data:
+DATASET_SPLITS: [motip_official_train40_v1]
+
+# E5 architecture (identical to the anneal run):
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+TRAIN_ENTITY_POINTER_ONLY: true
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+
+RESUME_MODEL: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_pointer_train32_epoch10_v3/checkpoint_9.pth
+RESUME_STRICT: false
+RESUME_OPTIMIZER: false
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+EPOCHS: 12
+LR: 0.001
+LR_WARMUP_EPOCHS: 0
+SCHEDULER_MILESTONES: [8, 11]
+SCHEDULER_GAMMA: 0.2
+
+# Validated ramp-plateau-anneal curriculum over a fresh 12-epoch run
+# (ep1-5 ramp to 0.15, ep6 plateau, ep7-12 anneal to the eval noise floor):
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.05, 0.10, 0.15, 0.15, 0.15, 0.12, 0.10, 0.08, 0.06, 0.05, 0.05]
+
+# Avoid the long-run DataLoader shared-memory failure seen in the official run.
+NUM_WORKERS: 4
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Per-epoch closed-loop evaluation on the OFFICIAL val split with the
+# OFFICIAL MOTIP protocol so epoch selection matches the reported metric.
+# Sinkhorn arbitration stays off here (inference-side only, enabled in the
+# standalone eval config).
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440

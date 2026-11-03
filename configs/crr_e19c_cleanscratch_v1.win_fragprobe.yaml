@@ -1,0 +1,122 @@
+# E19c WINDOWS FRAGMENTATION PROBE -- NOT A SCIENCE RUN.  Output is thrown away.
+#
+# WHY THIS EXISTS
+#   Three resume attempts all wedged with an IDENTICAL native stack
+#     cudaStreamSynchronize <- memcpy_and_sync <- nonzero_cuda <- index_put_
+#   inside backward -- at step 80 (attempt 1, no alloc conf) and step 20
+#   (attempt 3, garbage_collection_threshold:0.6 + max_split_size_mb:256).
+#   Process VRAM was pinned at 46.48 / 46.68 GB while torch's own
+#   max_memory_allocated reported only 17,321 MB.  That ~29 GB gap is
+#   reserved-but-unallocated caching-allocator cache, i.e. fragmentation.
+#   Root cause is structural: frozen_launcher.sh set
+#   PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True, and CUDAAllocatorConfig.h
+#   guards that option behind #ifndef PYTORCH_C10_DRIVER_API_SUPPORTED, so on
+#   Windows it is a pure no-op (it only emits a UserWarning).  Linux grows
+#   segments in place via cuMemMap; Windows must cudaMalloc every new size class.
+#
+#   A full attempt burns ~18 min just spawning 12 workers before it can hang,
+#   which makes A/B-ing allocator settings that way unaffordable.  This probe
+#   uses NUM_WORKERS 0 for MAX_STEPS_PER_EPOCH 120 steps: no spawn cost at all,
+#   and it still runs past step 80 where attempt 1 died.  Driven by
+#   scripts/probe_frag.bat <tag> [alloc_conf].
+#
+# OBSERVABLES (no source changes required)
+#   reserved  <- "\GPU Process Memory(pid_*)\Dedicated Usage" sampled from
+#                OUTSIDE the process by scripts/sample_vram.ps1.  torch never
+#                writes reserved to log.txt -- that blind spot is exactly what
+#                let this bug hide for two attempts.
+#   allocated <- log.txt max_cuda_mem(MB) == torch.cuda.max_memory_allocated()
+#   Verdict: a setting helps ONLY if reserved stops approaching the 49,140 MiB
+#   framebuffer ceiling.  Anything that merely lowers the logged allocated
+#   number is not evidence of anything.
+#
+# VALIDITY CRITERION -- AMENDED AFTER MEASURING THE base ARM
+#   The original criterion was "base must reach ~46 GB reserved or the probe is
+#   invalid".  base did NOT reach it, and the criterion was wrong, so it is
+#   replaced rather than the data discarded.  base measured, over 120 steps:
+#     allocated  1984 -> 11304 -> 11380 -> 19017 MB      (step 0/20/60/100)
+#     reserved   16.123 GB flat, then ONE jump to 32.635 GB at step ~100
+#     ratio      32.635*1024 / 19017 MB = 1.757, shared 0.107 GB (not paging)
+#   (ratio is reserved / allocated with BOTH SIDES IN MB.  An earlier hand
+#   calculation divided by 1000 instead of 1024 and gave 1.716.)
+#   reserved does not drift up smoothly; it RATCHETS.  Each time a sequence with
+#   more objects than any seen before arrives, allocated sets a new peak and the
+#   allocator cudaMallocs a fresh segment set for it while keeping the old ones
+#   cached.  120 steps only reaches the 19 GB tier, so it cannot reach the 46 GB
+#   endpoint -- that needs the tail of the size distribution, i.e. thousands of
+#   steps.  Requiring the endpoint would make every arm cost as much as the real
+#   run and defeat the purpose of a probe.
+#   NEW criterion: compare arms AT THE SAME STEP on
+#     (a) ratio = reserved / max_cuda_mem, and
+#     (b) whether reserved jumps in lockstep with allocated or lags behind it.
+#   base's 1.757 is the reference.  An arm that holds ratio near 1.0 has removed
+#   the ratchet and is a candidate; an arm at or above 1.757 has not.  Absolute
+#   GB is NOT comparable across arms because allocated itself moves.
+#
+# KNOWN LIMITATION -- read before trusting a NULL result
+#   With NUM_WORKERS 0 the augmentation RNG draws from the main-process
+#   generator instead of per-worker generators, so augmented crops are NOT
+#   bit-identical to a 12-worker run.  Trajectory lengths and
+#   DETR_NUM_TRAIN_FRAMES (the dominant source of size variance) are unchanged,
+#   and the base arm DID ratchet, so the mechanism is data-driven rather than
+#   worker-driven and NUM_WORKERS 0 is a legitimate stand-in.  It is still only
+#   enough to RANK allocator settings, not to prove one fixes the 12-worker run.
+#   Any winner must be re-confirmed with a full NUM_WORKERS 12 resume.
+#
+# Identical to crr_e19c_cleanscratch_v1.win_smoke.yaml except MAX_STEPS_PER_EPOCH
+# (2 -> 120) and SAVE_CHECKPOINT_PER_EPOCH (1 -> 100, disables eval + ckpt write).
+
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+DATASET_SPLITS: [motip_official_train40_v1]
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.0
+
+USE_CAUSAL_ENTITY_POINTER: true
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+
+DETR_NUM_TRAIN_FRAMES: 4
+DETR_NUM_CHECKPOINT_FRAMES: 1
+
+POINTER_HISTORY_BLACKOUT_PROB: 0.0
+POINTER_HISTORY_PREFIX_PROB: 0.0
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+POINTER_NEW_CLASS_WEIGHT: 1.0
+
+RESUME_MODEL: G:/mot_win/New_MOT_v2/motip_paradigm_reset/crr_e19c_cleanscratch_fixpkg_seed42_v1/checkpoint_0.pth
+RESUME_STRICT: true
+RESUME_OPTIMIZER: true
+RESUME_SCHEDULER: true
+RESUME_STATES: true
+
+EPOCHS: 2
+MAX_STEPS_PER_EPOCH: 120
+LR: 0.0001
+LR_WARMUP_EPOCHS: 1
+SCHEDULER_MILESTONES: [6, 9]
+SCHEDULER_GAMMA: 0.1
+
+NUM_WORKERS: 0
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+# 100, not 1: train.py gates BOTH save_checkpoint and submit_and_evaluate_one_model
+# behind the same `if (epoch + 1) % SAVE_CHECKPOINT_PER_EPOCH == 0`.  With EPOCHS 2
+# and start_epoch 1 the loop body runs once for epoch=1, so epoch+1=2 and 2 % 100 != 0
+# skips both.  A 570 MB checkpoint write and a 10-sequence TrackEval pass are pure
+# noise in an allocator A/B and cost ~25 min per arm.
+SAVE_CHECKPOINT_PER_EPOCH: 100

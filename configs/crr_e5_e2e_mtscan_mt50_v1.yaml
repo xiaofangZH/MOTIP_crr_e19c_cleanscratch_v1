@@ -1,0 +1,14 @@
+SUPER_CONFIG_PATH: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_e5_e2e_train40_cont7_seed42_v1/train/config.yaml
+
+# ---------------------------------------------------------------------------
+# miss_tolerance 离线扫描 (mt50)
+# 基于全局 ep6 checkpoint（checkpoint_1.pth, 与 eval_during_train/epoch_1 同权重）
+# 对照基线: epoch_1 结果即 mt30（相同协议 object-max + ID 0.2 + ep6 权重）
+# 目的: 验证延长 miss_tolerance 能否缓解尾部序列轨迹身份泛洪
+# ---------------------------------------------------------------------------
+INFERENCE_MODE: evaluate
+INFERENCE_MODEL: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_e5_e2e_train40_cont7_seed42_v1/checkpoint_1.pth
+INFERENCE_GROUP: mtscan
+OUTPUTS_DIR: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_e5_e2e_mtscan_mt50_v1
+MISS_TOLERANCE: 50
+USE_WANDB: false

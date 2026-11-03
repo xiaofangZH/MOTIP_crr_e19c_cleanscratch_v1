@@ -1,0 +1,14 @@
+# P2 Module A: resume from checkpoint_0.pth (interrupted at epoch 1, step 2900).
+#
+# The original run was killed by SIGHUP when SSH disconnected.
+# checkpoint_0.pth contains model + optimizer + scheduler + states (start_epoch=1).
+# This config restores full training state to continue epochs 1-9.
+#
+# Single variable unchanged: aggregation_mode = logsumexp.
+SUPER_CONFIG_PATH: ./configs/crr_pointer_module_a_v1.yaml
+
+# --- Resume from Module A epoch 0 checkpoint with full state restoration ---
+RESUME_STRICT: true              # checkpoint_0.pth already has log_tau; strict OK
+RESUME_OPTIMIZER: True           # restore AdamW momentum from epoch 0
+RESUME_SCHEDULER: True           # restore MultiStepLR state (last_epoch=0)
+RESUME_STATES: True              # restore start_epoch=1, global_step

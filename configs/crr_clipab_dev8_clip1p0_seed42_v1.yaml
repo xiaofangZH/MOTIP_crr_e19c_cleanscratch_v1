@@ -1,0 +1,12 @@
+SUPER_CONFIG_PATH: ./configs/crr_e5_e2e_train40_long30_seed42_v1.yaml
+
+# Clip-norm alignment A/B (2026-09-20) -- ARM A (CONTROL).
+# MAX_CLIP_NORM was raised from the official 0.1 to 1.0 in the pointer-curriculum
+# era (crr_pointer_train32_epoch10_v1.yaml) and inherited by every E5 run since.
+# Observed detr grad norms are 46-103, so at 1.0 the clip effectively never binds;
+# the official recipe clips every step to 0.1 (i.e. ~10x smaller effective step).
+# ARM A keeps 1.0 as the matched control for ARM B (0.1).
+# Everything else is identical to long30; 3 epochs on the 8-sequence dev8 subset
+# (9,703 frames/epoch) keeps the A/B affordable.
+EPOCHS: 3
+DATASET_SPLITS: [motip_reset_dev8_v1]

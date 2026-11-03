@@ -1,0 +1,23 @@
+# P2 Module A: query-conditional logsumexp aggregation.
+# Single variable vs P0 baseline: max-pool -> temperature logsumexp with
+# history-length correction.  Everything else (data, augmentation, Hungarian,
+# NEW head, lifecycle, thresholds) is inherited unchanged from the P0 config.
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+# --- Module A: aggregation mode ---
+POINTER_AGGREGATION_MODE: logsumexp
+POINTER_INIT_TAU: 0.5          # low tau approximates max at init -> smooth from checkpoint_9
+
+# --- Resume from checkpoint_9 weights only (fresh optimizer / scheduler) ---
+RESUME_STRICT: false           # log_tau is new; allow missing keys
+RESUME_OPTIMIZER: False        # fresh AdamW (new log_tau param needs clean momentum)
+RESUME_SCHEDULER: False        # fresh MultiStepLR
+RESUME_STATES: False           # start_epoch = 0
+
+# --- Training schedule ---
+# Pre-trained weights from checkpoint_9; moderate lr to adapt aggregation
+# without destroying learned query/key projections.
+LR: 0.0001
+SCHEDULER_MILESTONES: [5, 8]
+SCHEDULER_GAMMA: 0.2
+EPOCHS: 10

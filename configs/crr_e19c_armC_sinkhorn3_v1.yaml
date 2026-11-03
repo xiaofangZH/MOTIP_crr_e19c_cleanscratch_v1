@@ -1,0 +1,31 @@
+# E19c offline three-arm evaluation -- ARM C (object-max + Sinkhorn x3).
+#
+# Single-variable isolation against arm A (the per-epoch val eval in
+# train/eval_during_train/epoch_1):
+#   arm A: ASSIGNMENT_PROTOCOL object-max, SINKHORN_ITERS 0, ID_THRESH 0.2
+#   arm B: ASSIGNMENT_PROTOCOL hungarian, SINKHORN_ITERS 0, ID_THRESH 0.2
+#   arm C: ASSIGNMENT_PROTOCOL object-max, SINKHORN_ITERS 3, ID_THRESH 0.2  <- this
+#
+# runtime_tracker.py applies _sinkhorn_normalize() to id_logits BEFORE the
+# protocol dispatch, so it is active for object-max too.  SINKHORN_ITERS has no
+# CLI flag in runtime_option.py -- it can only come from the yaml.
+
+SUPER_CONFIG_PATH: ./configs/crr_e19c_cleanscratch_v1.yaml
+
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+
+ASSIGNMENT_PROTOCOL: object-max
+SINKHORN_ITERS: 3
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+INFERENCE_MODE: evaluate

@@ -1,0 +1,14 @@
+SUPER_CONFIG_PATH: ./configs/crr_e5_equivariant_memory_train32_epoch12_seed42_v1.yaml
+
+DATASET_SPLITS: [crr_pointer_train8_v1]
+EPOCHS: 1
+MAX_STEPS_PER_EPOCH: 60
+# Smoke the harshest E5 curriculum value directly: corruption 0.15.
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.15]
+NUM_WORKERS: 2
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Smoke is training-only; do not inherit automatic dev8 submission.
+INFERENCE_DATASET: null
+INFERENCE_SPLIT: null

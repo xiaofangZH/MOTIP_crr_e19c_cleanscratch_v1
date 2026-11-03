@@ -1,0 +1,10 @@
+SUPER_CONFIG_PATH: ./configs/crr_e5_e2e_train40_cont7_seed42_v1.yaml
+
+# E5 long-run (2026-09-20): continue from the global peak (cont7 ep5 ==
+# original ep10, HOTA 62.484) toward the official 60-epoch training budget.
+# E5 recipe unchanged; corruption pinned at the anneal-end value (no re-ramp,
+# E6 lesson); LR 1e-4 with decay milestones shifted to the back of a
+# 30-epoch window (proportional to the cont7 schedule position).
+EPOCHS: 30
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
+SCHEDULER_MILESTONES: [20, 27]

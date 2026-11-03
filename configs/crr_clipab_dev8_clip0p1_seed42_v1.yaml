@@ -1,0 +1,8 @@
+SUPER_CONFIG_PATH: ./configs/crr_e5_e2e_train40_long30_seed42_v1.yaml
+
+# Clip-norm alignment A/B (2026-09-20) -- ARM B (TREATMENT).
+# Identical to ARM A except MAX_CLIP_NORM is restored to the official MOTIP value.
+# See crr_clipab_dev8_clip1p0_seed42_v1.yaml for the rationale.
+EPOCHS: 3
+DATASET_SPLITS: [motip_reset_dev8_v1]
+MAX_CLIP_NORM: 0.1

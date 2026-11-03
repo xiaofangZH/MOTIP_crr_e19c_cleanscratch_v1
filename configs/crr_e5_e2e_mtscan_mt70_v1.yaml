@@ -1,0 +1,11 @@
+SUPER_CONFIG_PATH: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_e5_e2e_train40_cont7_seed42_v1/train/config.yaml
+
+# ---------------------------------------------------------------------------
+# miss_tolerance 离线扫描 (mt70)
+# ---------------------------------------------------------------------------
+INFERENCE_MODE: evaluate
+INFERENCE_MODEL: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_e5_e2e_train40_cont7_seed42_v1/checkpoint_1.pth
+INFERENCE_GROUP: mtscan
+OUTPUTS_DIR: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_e5_e2e_mtscan_mt70_v1
+MISS_TOLERANCE: 70
+USE_WANDB: false

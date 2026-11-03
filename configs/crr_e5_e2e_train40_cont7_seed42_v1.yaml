@@ -1,0 +1,67 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+# ---------------------------------------------------------------------------
+# E5-E2E CONTINUATION: resumes crr_e5_e2e_train40_epoch12_seed42_v1 from its
+# checkpoint_4 after a data-pipeline stall (training crawled at ~15 s/it from
+# epoch 5 iter ~12000; storage verified healthy, process-internal degrade).
+#
+# Resume semantics (same pattern as the anneal-branch resume):
+#   - weights from checkpoint_4 (end of original epoch 4, corruption 0.15)
+#   - optimizer moments restored; fresh scheduler (LR still 1e-4, pre-milestone)
+#   - fresh epoch counter -> schedule re-indexed from 0
+#
+# Re-indexed curriculum (new ep0 == original ep5):
+#   corruption : [0.15, 0.12, 0.10, 0.08, 0.06, 0.05, 0.05]
+#   milestones : [3, 6]   (== original [8, 11] shifted by -5)
+#   warmup     : 0        (original run already warmed up 1 epoch at 1e-4)
+#
+# Everything else is byte-identical to crr_e5_e2e_train40_epoch12_seed42_v1:
+# E5 equivariant-memory architecture, official MOTIP e2e regime (4 grad
+# frames + 26 no_grad per 30-frame sample, gradient checkpointing),
+# train40 data, official association augmentations (occlusion/switch 0.5),
+# per-epoch official-val eval under the official protocol.
+# ---------------------------------------------------------------------------
+
+DATASET_SPLITS: [motip_official_train40_v1]
+
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.5
+
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+DETR_NUM_TRAIN_FRAMES: 4
+DETR_NUM_CHECKPOINT_FRAMES: 1
+
+RESUME_MODEL: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_e5_e2e_train40_epoch12_seed42_v1/checkpoint_4.pth
+RESUME_STRICT: false
+RESUME_OPTIMIZER: true
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+EPOCHS: 7
+LR: 0.0001
+LR_WARMUP_EPOCHS: 0
+SCHEDULER_MILESTONES: [3, 6]
+SCHEDULER_GAMMA: 0.2
+
+# Re-indexed ramp-plateau-anneal tail (new ep0 = original ep5 at 0.15):
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.15, 0.12, 0.10, 0.08, 0.06, 0.05, 0.05]
+
+NUM_WORKERS: 4
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440

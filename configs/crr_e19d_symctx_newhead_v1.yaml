@@ -1,0 +1,132 @@
+# E19d Clean Scratch -- E19c recipe + the two architecture items from the
+# peer round-4 split (user decision 2026-10-26).  Run name:
+# crr_e19d_symctx_newhead_seed42_v1.
+#
+# Chain: this config -> r50_deformable_detr_motip_dancetrack.yaml (official base).
+# Everything the official base sets (EPOCHS 10, milestones [6, 9], gamma 0.1,
+# LR 1e-4 with 1 warmup epoch, WEIGHT_DECAY 5e-4, MAX_CLIP_NORM 0.1,
+# BATCH_SIZE 1, seed 42) is inherited UNCHANGED.  E19c's three fixes
+# (switch prob 0.0, default init on reliability/residual/id_gate, learnable
+# logit_scale) are inherited UNCHANGED as well.
+#
+# Deltas vs crr_e19c_cleanscratch_v1 (exactly two, both zero-init at step 0):
+#   1. USE_SYMMETRIC_HISTORY_PROTOTYPE: true
+#      models/motip/trajectory_modeling.py: mix each history token with the
+#      masked mean of its own WHOLE track column:
+#          x <- x + s_sym * (column_mean - x)
+#      The E1 causal prototype only averages the PREFIX of a track, so its
+#      prototype is biased toward the youngest, most-occluded frames.  The
+#      symmetric mean uses the full valid column.  Legitimate at inference:
+#      the history block is entirely older than the current frame, so mixing
+#      inside it never looks into the future.  s_sym is zero-initialised ->
+#      step 0 is bit-identical to E19c, and its gradient is delta-scaled
+#      (not a zero product), so it wakes up immediately.
+#   2. POINTER_NEW_CONTEXT_HEAD: true  (POINTER_NEW_CONTEXT_INIT 0.0)
+#      models/motip/entity_pointer.py: the NEW logit becomes
+#          s_new = new_pointer(x) + lam * logmeanexp_e(s_e)
+#      `new_pointer` sees only the query feature, so s_new lives at O(1)
+#      while every entity logit is a cos*sqrt(d)*logit_scale score at O(20).
+#      Different scales => NEW can never win; measured
+#      pointer_new_fraction collapses to ~0.004.  The log-mean-exp term puts
+#      NEW in the same reference frame as the entity it competes with.
+#      lam = 0 at init -> step 0 identical to E19c; dL/dlam is O(20 * 0.5),
+#      so it wakes up within a few hundred steps.  Note the mean-exp (not
+#      max) form: it does NOT replace the entity anchor base_max, so
+#      ID_THRESH 0.2 keeps its E19c calibration.
+#
+# NOT changed on purpose (recorded verdicts, peer round-4):
+#   - POINTER_AGGREGATION_MODE stays equivariant_memory.  `logsumexp` +
+#     POINTER_INIT_TAU is a MUTUALLY EXCLUSIVE dispatch branch (see
+#     _aggregate_mentions, entity_pointer.py): turning it on would drop the
+#     E1 entity-state residual and the E5 id-memory channel entirely, i.e. it
+#     would silently remove an E19c mechanism instead of adding one.  It is a
+#     separate arm, not a merge.
+#   - No state_score re-anchoring and no sigmoid gating (peer round-4 item 3,
+#     highest risk).  base_max IS the calibrated quantity behind
+#     ID_THRESH = 0.2; re-anchoring rescales every score and forces a full
+#     threshold re-sweep, and a sigmoid gate would drop the "gate < 0 means
+#     trust the pointer more" degree of freedom.
+#   - Eval protocol object-max + ID_THRESH 0.2 / DET_THRESH 0.3 /
+#     NEWBORN_THRESH 0.6 (official + E19c).  Inference-side
+#     hungarian / sinkhorn (peer item 4) is a zero-cost offline re-evaluation
+#     of an existing checkpoint and stays OUT of this run.
+#
+# Pre-registered verdict: identical to E19c (peak epoch, never the tail)
+#   HOTA >= 63.5 and IDs <= 2500  -> CRR paradigm independently converges
+#   62.5 <= HOTA < 63.5           -> partial success, recipe gap remains
+#   HOTA <= E5 family curve       -> deeper defect beyond the fix package
+# Attribution rule: this run changes two knobs at once (by design, same
+# repair-over-isolation policy as E19c).  If it moves, the next run isolates
+# the winner; if it does not move, both items are cleared.
+
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+# Data: official 40-sequence train split (identical to E5/ABL/E19c runs).
+DATASET_SPLITS: [motip_official_train40_v1]
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.0
+
+# CRR architecture (E19c identical).
+USE_CAUSAL_ENTITY_POINTER: true
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+TRAIN_ENTITY_POINTER_ONLY: false
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+
+# E19d item 1: symmetric (whole-column) history prototype.  s_sym = 0 at init.
+USE_SYMMETRIC_HISTORY_PROTOTYPE: true
+USE_CAUSAL_HISTORY_PROTOTYPE: false
+
+# E19d item 2: context-aware NEW head.  lam = 0 at init.
+POINTER_NEW_CONTEXT_HEAD: true
+POINTER_NEW_CONTEXT_INIT: 0.0
+
+# Official end-to-end regime (4 gradient frames + 26 no-grad frames).
+DETR_NUM_TRAIN_FRAMES: 4
+DETR_NUM_CHECKPOINT_FRAMES: 1
+
+# The three E5-only mechanisms: OFF (E18 ablation verdict).
+POINTER_HISTORY_BLACKOUT_PROB: 0.0
+POINTER_HISTORY_PREFIX_PROB: 0.0
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+POINTER_NEW_CLASS_WEIGHT: 1.0
+
+# From-scratch: no RESUME_MODEL.  The official pretrained detector is passed
+# via --detr-pretrain on the command line (r50_deformable_detr_coco_dancetrack.pth).
+# Clean scratch is required here: the two new parameters do not exist in any
+# E19c checkpoint, so a strict resume would be rejected outright.
+RESUME_MODEL:
+RESUME_STRICT: true
+RESUME_OPTIMIZER: false
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+# Official schedule inherited from the base (EPOCHS 10, milestones [6, 9],
+# gamma 0.1, LR 1e-4, warmup 1) -- restated here for frozen-config readability.
+EPOCHS: 10
+LR: 0.0001
+LR_WARMUP_EPOCHS: 1
+SCHEDULER_MILESTONES: [6, 9]
+SCHEDULER_GAMMA: 0.1
+
+# Runtime.  8 instead of 12: Windows spawn re-imports torch and unpickles the
+# 66.8 MB JointDataset in every worker, so the measured cold start was
+# ~18 min/epoch at 12 workers (~1.6% of an epoch, but it dominates the
+# apparent "hang").
+NUM_WORKERS: 8
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Per-epoch official val evaluation.
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+SAVE_CHECKPOINT_PER_EPOCH: 1

@@ -1,0 +1,28 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+# ---------------------------------------------------------------------------
+# Protocol-alignment run: E5 anneal ckpt8 on official DanceTrack val with the
+# OFFICIAL MOTIP inference protocol (object-max + ID_THRESH 0.2), for an
+# apples-to-apples comparison against MOTIP's published val numbers
+# (HOTA 72.0).  Our CRR protocol (hungarian + ID 0.0) was used consistently
+# across all CRR experiments (internal comparisons valid), but differs from
+# the official protocol -- this run quantifies that protocol gap.
+# ---------------------------------------------------------------------------
+
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+
+# OFFICIAL MOTIP protocol (from r50_deformable_detr_motip_dancetrack.yaml):
+ASSIGNMENT_PROTOCOL: object-max
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.2
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+INFERENCE_MODE: evaluate

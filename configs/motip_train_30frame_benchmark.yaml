@@ -1,0 +1,18 @@
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+# Representative engineering benchmark using the official temporal/memory settings.
+SAMPLE_STEPS: [0, ]
+SAMPLE_LENGTHS: [30, ]
+SAMPLE_INTERVALS: [1, ]
+NUM_WORKERS: 2
+PREFETCH_FACTOR: 2
+BATCH_SIZE: 1
+EPOCHS: 1
+LR_WARMUP_EPOCHS: 0
+SCHEDULER_MILESTONES: []
+SAVE_CHECKPOINT_PER_EPOCH: 1
+USE_WANDB: False
+
+# Disable accuracy evaluation for this timing-only run. The evaluation pipeline
+# has already been independently validated by the 6-frame resume smoke.
+INFERENCE_DATASET:

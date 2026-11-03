@@ -1,0 +1,9 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_module_a_consensus_residual_epoch2_v1.yaml
+POINTER_CONSENSUS_RESIDUAL_SCALE: 1.0
+INFERENCE_MODEL: /root/work/data/New_MOT_v2/motip_paradigm_reset/module_a_consensus_residual_train32_epoch2_v1/checkpoint_1.pth
+INFERENCE_MODE: evaluate
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: crr_b3_fit24_v1
+INFERENCE_GROUP: p0a_closed_loop_fit24
+OUTPUTS_DIR: /root/work/data/New_MOT_v2/motip_paradigm_reset/b3_p0a_closed_loop_fit24_attribution_v1
+USE_WANDB: false

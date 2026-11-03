@@ -1,0 +1,34 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+# ---------------------------------------------------------------------------
+# CONTROL run: E1 baseline (faithful MOTIP reproduction, frozen dev8 76.384)
+# on the OFFICIAL DanceTrack val split, protocol bit-identical to the E5
+# anneal-ckpt8 val evaluation.  Purpose: the E5 ckpt8 val number (HOTA 59.61)
+# is far below its dev8 number (83.23); dev8 turned out to be the 8 held-out
+# sequences of the TRAIN split, which the DETR detector pretrain has likely
+# seen -- so dev8 absolute numbers are inflated.  This control decides
+# between two hypotheses:
+#   H1 (pipeline-level): our whole setup scores lower than official MOTIP
+#       val (72.0) -- then E1 should also land ~59-62 and the E5-vs-E1
+#       controlled comparison remains the paper claim.
+#   H2 (E5-specific): E1 lands ~70+ -- then E5 genuinely fails to transfer,
+#       and dev8-based model selection (ep8) was contaminated.
+# ---------------------------------------------------------------------------
+
+# E1 model structure:
+POINTER_AGGREGATION_MODE: entity_state
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+
+# Runtime protocol (identical to E5 val eval):
+ASSIGNMENT_PROTOCOL: hungarian
+DET_THRESH: 0.3
+NEWBORN_THRESH: 0.6
+ID_THRESH: 0.0
+MISS_TOLERANCE: 30
+INFERENCE_MAX_LONGER: 1440
+USE_WANDB: false
+
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: val
+INFERENCE_MODE: evaluate

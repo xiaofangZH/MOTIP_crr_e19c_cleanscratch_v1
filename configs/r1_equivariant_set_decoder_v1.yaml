@@ -1,0 +1,29 @@
+# R1: replace only the association decoder with the equivariant set decoder.
+# All optimization, data augmentation, schedule, and inference settings inherit
+# from the official MOTIP DanceTrack base unless restated at the same value.
+SUPER_CONFIG_PATH: ./configs/r50_deformable_detr_motip_dancetrack.yaml
+
+USE_EQUIVARIANT_SET_DECODER: true
+USE_CAUSAL_ENTITY_POINTER: false
+USE_CAUSAL_HISTORY_PROTOTYPE: false
+USE_SYMMETRIC_HISTORY_PROTOTYPE: false
+USE_AUX_LOSS: true
+
+AUG_TRAJECTORY_OCCLUSION_PROB: 0.5
+AUG_TRAJECTORY_SWITCH_PROB: 0.0
+DETR_NUM_TRAIN_FRAMES: 4
+DETR_NUM_CHECKPOINT_FRAMES: 5
+USE_DECODER_CHECKPOINT: false
+
+# Clean scratch: load only the official pretrained DETR through the launcher.
+RESUME_MODEL:
+RESUME_STRICT: true
+RESUME_OPTIMIZER: false
+RESUME_SCHEDULER: false
+RESUME_STATES: false
+
+# Windows runtime only; these do not change the training recipe.
+NUM_WORKERS: 12
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+SAVE_CHECKPOINT_PER_STEP: 1000

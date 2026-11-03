@@ -1,0 +1,47 @@
+SUPER_CONFIG_PATH: ./configs/crr_pointer_train32_epoch10_v1.yaml
+
+POINTER_AGGREGATION_MODE: equivariant_memory
+POINTER_ENTITY_STATE_RESIDUAL_SCALE: 2.0
+POINTER_ENTITY_STATE_HIDDEN_DIM: 64
+POINTER_ID_MEMORY_DIM: 128
+TRAIN_ENTITY_POINTER_ONLY: true
+TRAIN_POINTER_CONSENSUS_ONLY: false
+TRAIN_POINTER_ENTITY_STATE_ONLY: false
+
+RESUME_MODEL: /root/work/data/New_MOT_v2/motip_paradigm_reset/crr_e5_equivariant_memory_train32_epoch12_seed42_v1/checkpoint_5.pth
+RESUME_STRICT: true
+RESUME_OPTIMIZER: true
+RESUME_SCHEDULER: true
+RESUME_STATES: true
+
+# CRR-E5 anneal branch (paper key path, curriculum-shape correction).
+# v1 diagnosis: constant plateau corruption 0.15 for 9 epochs caused a
+# train/eval history-distribution mismatch -- the model over-adapted to a
+# 15%-corrupted input statistic while dev8 closed-loop history is much
+# cleaner (~5-10% self-regression error), so clean-history HOTA decayed
+# monotonically from ep1 81.454 through ep5 79.360 (id_loss converged on
+# the dirty task: 0.147).  Fix: anneal the curriculum tail towards the
+# evaluation environment's real noise rate ("S-shape: ramp -> plateau ->
+# alignment anneal").  Training distribution should CONVERGE to the
+# inference distribution, not stop at an arbitrary cap.
+# Epochs 0-5 below reproduce v1 exactly (0, .05, .10, .15x3); this run
+# resumes from v1 checkpoint_5 so only epochs 6-11 actually execute:
+#   0.12, 0.10, 0.08, 0.06, 0.05, 0.05  (final = eval noise floor).
+# LR milestones [8, 11] coincide with the anneal tail: decayed LR during
+# alignment acts as the fine-tune phase.
+EPOCHS: 12
+LR: 0.001
+LR_WARMUP_EPOCHS: 0
+SCHEDULER_MILESTONES: [8, 11]
+SCHEDULER_GAMMA: 0.2
+POINTER_HISTORY_CORRUPTION_SCHEDULE: [0.0, 0.05, 0.10, 0.15, 0.15, 0.15, 0.12, 0.10, 0.08, 0.06, 0.05, 0.05]
+
+# Avoid the long-run DataLoader shared-memory failure seen in the official run.
+NUM_WORKERS: 4
+PREFETCH_FACTOR: 2
+USE_WANDB: false
+
+# Per-epoch closed-loop evaluation, identical protocol to the v1 run so the
+# anneal epochs 6-11 are directly comparable with epochs 0-5 of v1.
+INFERENCE_DATASET: DanceTrack
+INFERENCE_SPLIT: motip_reset_dev8_v1
